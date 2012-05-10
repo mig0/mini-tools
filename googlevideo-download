@@ -1,0 +1,36 @@
+#!/usr/bin/perl
+
+# googlevideo-download - convenient command-line script to download video
+# Copyright (C) 2008-2012 Mikhael Goikhman. This program is free software;
+# you can modify and redistribute it under the same terms as Perl itself.
+
+# Example: googlevideo-download -6547777336881961043
+
+use strict;
+use warnings;
+
+use CGI;  # for unescapeHTML
+
+my $id = shift || die "Usage: $0 google-video-id-or-url\n";
+$id =~ s!.*?[/=](-?\d+)(&.*)?$!$1!;
+die "Invalid google video id or url $id\n" unless $id =~ /^-?(\d+)$/;
+
+my $filename = glob("*.$id.mp4");
+die "File $filename exists, size " . (-s _) . "\n" if $filename && -f $filename;
+
+my $url = "http://video.google.com/videoplay?docid=$id";
+my $content = `wget -q -O - '$url'`;
+my ($video_url) = $content =~ /videoUrl\\x3d(.*?)(?:\\x26|')/;
+my ($title, $description, $date, $duration) = map {
+	my ($value) = $content =~ /id="?video-$_(?:|["\s][^>]*?)>([^<]*?)(&nbsp;)?</s;
+	$value = CGI::unescapeHTML($value || "");
+	$value =~ s/^\s+|\s+$|\s+\K\s//g;
+	$value
+} qw(title description date duration);
+die "No video title and url in $url\n" unless $video_url && $title;
+$video_url =~ s/%([\da-f][\da-f])/chr hex $1/gie;
+
+$filename = "$title.$id.mp4";
+$filename =~ s!/!_!g;
+print "$description\n\nDuration: $duration, date: $date\n\n";
+exec qw(wget -U Mozilla/compatible --referer), $url, '-O', $filename, $video_url;

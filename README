@@ -1,0 +1,18 @@
+During years I wrote hundreds of small script for my own usage.
+Some of these scripts may be useful for others.
+
+calc
+	quick calculator; supports args or stdin; interactive without args
+extract-ebay-images
+	store images of ebay items before the listing expires in N months
+googlevideo-download
+	download raw videos from now-obsolete yet active video.google.com
+mingal
+	create your hyperlinked image galery in a second
+morse-encode
+	be geeky, use Morse code
+url-decode, url-encode
+	process url-encoded or url-decoded strings
+
+Best regards,
+Mikhael Goikhman

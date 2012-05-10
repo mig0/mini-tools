@@ -1,0 +1,58 @@
+#!/usr/bin/perl
+
+# extract-ebay-images - download seller's images of specified ebay items
+# Copyright (C) 2008-2012 Mikhael Goikhman. This program is free software;
+# you can modify and redistribute it under the same terms as Perl itself.
+
+use strict;
+use warnings;
+
+use List::MoreUtils qw(uniq);
+
+PROCESS_ITEM:
+my $item_id = shift || die "Usage: $0 EBAY-ITEM-ID ...\n";
+die "Invalid EBAY-ITEM-ID ($item_id)\n" unless $item_id =~ /^\d+$/;
+my $item_url = qq{http://cgi.ebay.com/ws/eBayISAPI.dll?ViewItem&item=$item_id};
+
+my $cookies_filename = "/tmp/cookies-$$.txt";
+system("touch '$cookies_filename'");
+END { unlink $cookies_filename if $cookies_filename; }
+my $WGET = "wget --load-cookies $cookies_filename --save-cookies $cookies_filename --keep-session-cookies --user-agent 'Mozilla/5.0 (X11; Linux i686; rv:2.0) Gecko/20101010 Firefox/4.0'";
+
+my $content = `$WGET -O - '$item_url'`;
+
+if ($content =~ m!<a href="(http://[^"]+)"[^>]*>See full description</a>!) {
+	my $exp_item_url = $1;
+	$exp_item_url =~ s/&amp;/&/g;
+	$content = `$WGET -O - --referer '$item_url' '$exp_item_url'`;
+}
+
+# *_14*_12.JPG, *_12*_3.JPG, ~~60_1.JPG, ~~60_58.JPG
+my @image_urls = $content =~ m{http://i.ebayimg.com/[^"]*?_\d+\.JPG[^"]*?_\d+\.JPG}g;
+@image_urls = $content =~ m{http://i.ebayimg.com/[^"]*?~~\d+_\d+.JPG}g
+	unless @image_urls;
+@image_urls = $content =~ m{http://i.ebayimg.com/[^"]*?_(?:35|1).JPG}g
+	unless @image_urls;
+@image_urls = $content =~ m{http://img.auctiva.com/[^"]*?_tp\.jpg}g
+	unless @image_urls;
+@image_urls = $content =~ m{http://img.auctiva.com/[^"]*?_o\.jpg}g
+	unless @image_urls;
+#print $content;
+#s/~~60_1\./~~60_58./ for @image_urls;
+
+unless (@image_urls) {
+	my $filename = "eei-$$.html";
+	open OUT, ">$filename" and print OUT $content and close OUT and
+	warn "Attention: wrote html content to file $filename for debug\n";
+	die "No image url found, exiting\n"
+}
+@image_urls = uniq @image_urls;
+
+for my $i (1 .. @image_urls) {
+	my $suffix = @image_urls == 1 ? "" : "-$i";
+	my $image_url = $image_urls[$i - 1];
+	$image_url =~ s/#.*#//;
+	system("wget -O $item_id$suffix.jpg '$image_url'");
+}
+
+goto PROCESS_ITEM if @ARGV;
